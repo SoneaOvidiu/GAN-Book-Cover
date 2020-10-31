@@ -1,0 +1,6 @@
+/book-covers/
+/book-covers-no-text/
+/book-covers-discarded/
+*.pb
+/venv/
+/main_dataset.csv
