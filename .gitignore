@@ -1,4 +1,2 @@
-*.pb
 /venv/
-/main_dataset.csv
 /book-covers/
