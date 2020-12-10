@@ -14,6 +14,7 @@ from keras.layers import Conv2D
 from keras.layers import Conv2DTranspose
 from keras.layers import LeakyReLU
 from keras.layers import Dropout
+from keras.layers import BatchNormalization
 from matplotlib import pyplot
 import os
 from PIL import Image
@@ -21,22 +22,29 @@ from skimage.transform import resize
 import pickle
 import numpy as np
 
-
+# os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 # define the standalone discriminator model
-def define_discriminator(in_shape=(120, 80, 3)):
+def define_discriminator(in_shape=(240, 160, 3)):
     model = Sequential()
     # normal
     model.add(Conv2D(64, (3, 3), padding='same', input_shape=in_shape))
     model.add(LeakyReLU(alpha=0.2))
+    #model.add(BatchNormalization())
     # downsample
     model.add(Conv2D(128, (3, 3), strides=(2, 2), padding='same'))
     model.add(LeakyReLU(alpha=0.2))
+    #model.add(BatchNormalization())
     # downsample
     model.add(Conv2D(128, (3, 3), strides=(2, 2), padding='same'))
     model.add(LeakyReLU(alpha=0.2))
+    #model.add(BatchNormalization())
     # downsample
     model.add(Conv2D(256, (3, 3), strides=(2, 2), padding='same'))
     model.add(LeakyReLU(alpha=0.2))
+    #model.add(BatchNormalization())
+    model.add(Conv2D(256, (3, 3), strides=(2, 2), padding='same'))
+    model.add(LeakyReLU(alpha=0.2))
+    #model.add(BatchNormalization())
     # classifier
     model.add(Flatten())
     model.add(Dropout(0.4))
@@ -51,19 +59,20 @@ def define_discriminator(in_shape=(120, 80, 3)):
 def define_generator(latent_dim):
     model = Sequential()
     # foundation for 4x4 image
-    n_nodes = 256 * 15 * 10
+    n_nodes = 256 * 30 * 20
     model.add(Dense(n_nodes, input_dim=latent_dim))
-    model.add(LeakyReLU(alpha=0.2))
-    model.add(Reshape((15, 10, 256)))
+    # model.add(LeakyReLU(alpha=0.2))
+    # model.add(Dropout(0.4))
+    # model.add(Dense(n_nodes,activation='relu'))
+    model.add(Reshape((30, 20, 256)))
     # upsample to 8x8
-    model.add(Conv2DTranspose(128, (4, 4), strides=(2, 2), padding='same'))
-    model.add(LeakyReLU(alpha=0.2))
+    model.add(Conv2DTranspose(256, (4, 4), activation='relu', strides=(2, 2), padding='same'))
+    #model.add(BatchNormalization())
     # upsample to 16x16
-    model.add(Conv2DTranspose(128, (4, 4), strides=(2, 2), padding='same'))
-    model.add(LeakyReLU(alpha=0.2))
+    model.add(Conv2DTranspose(128, (4, 4), activation='relu', strides=(2, 2), padding='same'))
+    #model.add(BatchNormalization())
     # upsample to 32x32
-    model.add(Conv2DTranspose(128, (4, 4), strides=(2, 2), padding='same'))
-    model.add(LeakyReLU(alpha=0.2))
+    model.add(Conv2DTranspose(64, (4, 4), activation='relu', strides=(2, 2), padding='same'))
     # output layer
     model.add(Conv2D(3, (3, 3), activation='tanh', padding='same'))
     return model
@@ -93,7 +102,7 @@ def load_real_samples():
             if file.endswith(".jpg") and len(dataset) < 2000:
                 dataset.append(
                     resize(np.asarray(Image.open(os.path.join('D:\\1. University\\5. Fifth Semester\\Deep Learning & Computer Vision\\GANs\\book-covers', os.path.join(directory, file)))),
-                           (120, 80, 3)))
+                           (240, 160, 3)))
                 if len(dataset) % 100 == 0:
                     print("Number of images loaded in memory: " + str(len(dataset)))
     for i in range(49):
@@ -112,13 +121,13 @@ def load_real_samples():
 def load_real_images_from_directory(name):
     dataset = []
     for file in os.listdir(
-            'D:\\1. University\\5. Fifth Semester\\Deep Learning & Computer Vision\\GANs\\book-covers' + '\\' + name):
+            'D:\\1. University\\5. Fifth Semester\\Deep Learning & Computer Vision\\GANs\\book-covers-no-text' + '\\' + name):
         if file.endswith(".jpg"):
             dataset.append(
                 resize(np.asarray(Image.open(os.path.join(
-                    'D:\\1. University\\5. Fifth Semester\\Deep Learning & Computer Vision\\GANs\\book-covers\\',
+                    'D:\\1. University\\5. Fifth Semester\\Deep Learning & Computer Vision\\GANs\\book-covers-no-text\\',
                     os.path.join(name, file)))),
-                       (120, 80, 3)))
+                       (240, 160, 3)))
             if len(dataset) % 100 == 0:
                 print("Number of images loaded in memory: " + str(len(dataset)))
     for i in range(49):
@@ -196,11 +205,11 @@ def summarize_performance(epoch, g_model, d_model, dataset, latent_dim, n_sample
     print('>Accuracy real: %.0f%%, fake: %.0f%%' % (acc_real * 100, acc_fake * 100))
     # save plot
     save_plot(x_fake, epoch)
-    with open('generator_model.pickle', 'wb') as handle:
+    with open('generator_model_'+folder_name+'_BIG.pickle', 'wb') as handle:
         pickle.dump(g_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
-    with open('discriminator_model.pickle', 'wb') as handle:
+    with open('discriminator_model_'+folder_name+'_BIG.pickle', 'wb') as handle:
         pickle.dump(d_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
-    with open('gan_model.pickle', 'wb') as handle:
+    with open('gan_model_'+folder_name+'_BIG.pickle', 'wb') as handle:
         pickle.dump(g_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
     # save the generator model tile file
     # filename = 'generator_model_%03d.h5' % (epoch + 1)
@@ -208,7 +217,7 @@ def summarize_performance(epoch, g_model, d_model, dataset, latent_dim, n_sample
 
 
 # train the generator and discriminator
-def train(g_model, d_model, gan_model, dataset, latent_dim, n_epochs=700, n_batch=32):
+def train(g_model, d_model, gan_model, dataset, latent_dim, n_epochs=2000, n_batch=16):
     bat_per_epo = int(dataset.shape[0] / n_batch)
     half_batch = int(n_batch / 2)
     # manually enumerate epochs
@@ -238,17 +247,18 @@ def train(g_model, d_model, gan_model, dataset, latent_dim, n_epochs=700, n_batc
 
 
 # size of the latent space
-latent_dim = 100
+latent_dim = 200
 # create the discriminator
-folder_name='Art-Photography'
-if os.path.isfile("discriminator_model_"+folder_name+".pickle"):
-    with open('discriminator_model_"+folder_name+".pickle', 'rb') as pickle_file:
+#folder_name='Art-Photography'
+folder_name='Romance'
+if os.path.isfile("discriminator_new_model_"+folder_name+"_BIG.pickle"):
+    with open('discriminator_new_model_'+folder_name+'_BIG.pickle', 'rb') as pickle_file:
         d_model = pickle.load(pickle_file)
 else:
     d_model = define_discriminator()
 # create the generator
-if os.path.isfile("generator_model_"+folder_name+".pickle"):
-    with open("generator_model_"+folder_name+".pickle", 'rb') as pickle_file:
+if os.path.isfile("generator_new_model_"+folder_name+"_BIG.pickle"):
+    with open("generator_new_model_"+folder_name+"_BIG.pickle", 'rb') as pickle_file:
         g_model = pickle.load(pickle_file)
 else:
     g_model = define_generator(latent_dim)
