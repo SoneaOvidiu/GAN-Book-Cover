@@ -146,4 +146,3 @@ def remove_text_from_image(input_image_path, output_image_path, discarded_image_
         cv2.imwrite(output_image_path, frame)
     else:
         cv2.imwrite(discarded_image_path, frame)
-
