@@ -175,7 +175,7 @@ def generate_fake_samples(g_model, latent_dim, n_samples):
 # create and save a plot of generated images
 def save_plot(examples, epoch, n=5):
     # scale from [-1,1] to [0,1]
-    examples = (examples + 1) / 2.0
+    # examples = (examples + 1) / 2.0
     # plot images
     for i in range(n * n):
         # define subplot
@@ -191,7 +191,7 @@ def save_plot(examples, epoch, n=5):
 
 
 # evaluate the discriminator, plot generated images, save generator model
-def summarize_performance(epoch, g_model, d_model, dataset, latent_dim, n_samples=150):
+def summarize_performance(epoch, g_model, d_model, dataset, latent_dim, gan_model, n_samples=150):
     # prepare real samples
     x_real, y_real = generate_real_samples(dataset, n_samples)
     # evaluate discriminator on real examples
@@ -209,7 +209,7 @@ def summarize_performance(epoch, g_model, d_model, dataset, latent_dim, n_sample
     with open('discriminator_model_' + FOLDER_NAME + '_BIG.pickle', 'wb') as handle:
         pickle.dump(d_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
     with open('gan_model_' + FOLDER_NAME + '_BIG.pickle', 'wb') as handle:
-        pickle.dump(g_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        pickle.dump(gan_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
     # save the generator model tile file
     # filename = 'generator_model_%03d.h5' % (epoch + 1)
     # g_model.save(filename)
@@ -242,27 +242,31 @@ def train(g_model, d_model, gan_model, dataset, latent_dim, n_epochs=2000, n_bat
                   (i + 1, j + 1, bat_per_epo, d_loss1, d_loss2, g_loss))
         # evaluate the model performance, sometimes
         if (i + 1) % 10 == 0:
-            summarize_performance(i, g_model, d_model, dataset, latent_dim)
+            summarize_performance(i, g_model, d_model, dataset, latent_dim, gan_model)
 
 
 # size of the latent space
 LATENT_DIM = 200
 # create the discriminator
 # FOLDER_NAME = 'Art-Photography'
-FOLDER_NAME = 'Romance'
-if os.path.isfile("discriminator_new_model_" + FOLDER_NAME + "_BIG.pickle"):
-    with open('discriminator_new_model_' + FOLDER_NAME + '_BIG.pickle', 'rb') as pickle_file:
+FOLDER_NAME = 'Graphic-Novels-Anime-Manga'
+if os.path.isfile("discriminator_model_" + FOLDER_NAME + "_BIG.pickle"):
+    with open('discriminator_model_' + FOLDER_NAME + '_BIG.pickle', 'rb') as pickle_file:
         D_MODEL = pickle.load(pickle_file)
 else:
     D_MODEL = define_discriminator()
 # create the generator
-if os.path.isfile("generator_new_model_" + FOLDER_NAME + "_BIG.pickle"):
-    with open("generator_new_model_" + FOLDER_NAME + "_BIG.pickle", 'rb') as pickle_file:
+if os.path.isfile("generator_model_" + FOLDER_NAME + "_BIG.pickle"):
+    with open("generator_model_" + FOLDER_NAME + "_BIG.pickle", 'rb') as pickle_file:
         G_MODEL = pickle.load(pickle_file)
 else:
     G_MODEL = define_generator(LATENT_DIM)
 # create the gan
-GAN_MODEL = define_gan(G_MODEL, D_MODEL)
+if os.path.isfile("gan_model_" + FOLDER_NAME + "_BIG.pickle"):
+    with open("gan_model_" + FOLDER_NAME + "_BIG.pickle", 'rb') as pickle_file:
+        GAN_MODEL = pickle.load(pickle_file)
+else:
+    GAN_MODEL = define_gan(G_MODEL, D_MODEL)
 # load image data
 # DATASET = load_real_samples()
 DATASET = load_real_images_from_directory(FOLDER_NAME)
